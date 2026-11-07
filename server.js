@@ -9,7 +9,7 @@ const path = require('path');
 const os = require('os');
 const api = require('./lib/api');
 
-const PORT = Number(process.env.PORT) || 3000;
+const BASE_PORT = Number(process.env.PORT) || 8099;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -67,7 +67,7 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const app = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const pathname = decodeURIComponent(url.pathname);
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
@@ -92,19 +92,35 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  const nets = os.networkInterfaces();
-  const ips = [];
-  Object.values(nets).forEach((list) => (list || []).forEach((n) => {
-    if (n.family === 'IPv4' && !n.internal) ips.push(n.address);
-  }));
-  console.log('');
-  console.log('  高校课程协作与评审平台已启动');
-  console.log('  ------------------------------------');
-  console.log('  本机访问: http://localhost:' + PORT);
-  ips.forEach((ip) => console.log('  局域网:   http://' + ip + ':' + PORT));
-  console.log('  按 Ctrl+C 停止');
-  console.log('');
-});
+/** 端口被占用时自动顺延，最多尝试 20 个端口。 */
+function start(port, attempt) {
+  const n = attempt || 0;
+  app.once('error', (err) => {
+    if (err.code === 'EADDRINUSE' && n < 20) {
+      console.log('  端口 ' + port + ' 已被占用，尝试 ' + (port + 1) + ' ...');
+      setTimeout(() => start(port + 1, n + 1), 120);
+      return;
+    }
+    console.error('启动失败：', err.message);
+    process.exit(1);
+  });
+  app.listen(port, '0.0.0.0', () => {
+    const actual = app.address().port;
+    const nets = os.networkInterfaces();
+    const ips = [];
+    Object.values(nets).forEach((list) => (list || []).forEach((it) => {
+      if (it.family === 'IPv4' && !it.internal) ips.push(it.address);
+    }));
+    console.log('');
+    console.log('  高校课程协作与评审平台已启动');
+    console.log('  ------------------------------------');
+    console.log('  本机访问: http://localhost:' + actual);
+    ips.forEach((ip) => console.log('  局域网:   http://' + ip + ':' + actual));
+    console.log('  按 Ctrl+C 停止');
+    console.log('');
+  });
+}
+
+start(BASE_PORT, 0);
 
 process.on('SIGINT', () => { console.log('\n已停止。'); process.exit(0); });

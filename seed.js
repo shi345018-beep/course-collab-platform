@@ -101,6 +101,9 @@ store.reset(() => {
       submittedById: t.leaderId, submittedAt: iso(-12, 20)
     });
   });
+  teams.forEach((t) => {
+    store.insert('teamIterations', { teamId: t.id, iterationId: it1.id, status: 'done', note: '迭代1已交付' });
+  });
 
   const it1Subs = store.where('submissions', (s) => s.iterationId === it1.id);
   const rub = [

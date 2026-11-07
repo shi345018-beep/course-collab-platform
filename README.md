@@ -11,7 +11,7 @@ node server.js   # 启动服务
 
 或直接双击 `start.bat`。
 
-浏览器打开 <http://localhost:3000>。
+浏览器打开 <http://localhost:8099>。
 
 ## 演示账号
 

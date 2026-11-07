@@ -208,7 +208,8 @@ async function viewTeams() {
   const rows = teams.map((t) => {
     const mine = (t.members || []).some((m) => m.id === S.user.id);
     const canJoin = role === 'student' && !mine && !S.myTeamId && t.openJoin;
-    const prog = (t.iterations || []).map((i) => `${i.seq}.${statusText[i.status] || i.status}`).join(' ｜ ');
+    const prog = (t.iterations || []).map((i) =>
+      `${i.seq}.${statusText[i.status] || i.status}${i.overdue ? '（逾期）' : ''}`).join(' ｜ ');
     return `<tr><td>${esc(t.name)} ${mine ? badge('我的小组', 'info') : ''}</td>
       <td>${t.memberCount} 人</td>
       <td>${esc((t.members || []).map((m) => m.name).join('、'))}</td>

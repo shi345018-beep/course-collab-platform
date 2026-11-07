@@ -171,6 +171,7 @@ async function viewDashboard() {
   const recent = (d.recentLogs || []).map((l) => `<tr><td>${fmt(l.at || l.createdAt)}</td><td>${esc(l.actorName)}</td>
     <td>${esc(l.actionText || l.action)}</td><td>${esc(l.detail || '')}</td></tr>`).join('');
   return `<h1>概览</h1><div class="sub">${esc(S.course.name)} · ${esc(S.course.term)} · ${esc(S.course.teacherName || '')}</div>
+    ${S.user.role === 'teacher' ? '<div class="row" style="margin-bottom:12px"><button class="btn sm" onclick="openNewCourse()">新建课程</button></div>' : ''}
     <div class="grid c4">${cards.map(([t, v]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join('')}</div>
     ${d.myGrades && d.myGrades.length ? `<div class="card" style="margin-top:14px"><h2>我的成绩</h2>
       <table><thead><tr><th>项目</th><th>团队总分</th><th>贡献系数</th><th>个人最终分</th></tr></thead><tbody>
@@ -183,12 +184,19 @@ async function viewDashboard() {
 }
 
 async function viewProject() {
-  if (!S.project) return '<div class="card"><h2>暂无项目任务</h2></div>';
+  if (!S.project) {
+    return `<div class="card"><h2>暂无项目任务</h2>
+      <p style="color:#6b7c8f">${S.user.role === 'teacher' ? '为本课程创建第一个项目任务。' : '教师尚未发布项目任务。'}</p>
+      ${S.user.role === 'teacher' ? '<button class="btn" onclick="openNewProject()">新建项目</button>' : ''}</div>`;
+  }
   const p = S.project;
   const its = (p.iterations || []).map((i) => `<tr><td>${i.seq}</td><td>${esc(i.name)}</td>
     <td>${esc(i.goal)}</td><td>${fmt(i.dueDate)}</td><td>${esc((i.deliverables || []).join('、'))}</td></tr>`).join('');
   const isTeacher = S.role === 'teacher' || S.user.role === 'admin';
   return `<h1>项目任务</h1><div class="sub">${esc(p.title)} · ${p.status === 'published' ? badge('已发布', 'ok') : badge('草稿', 'muted')}</div>
+    ${isTeacher ? `<div class="row" style="margin-bottom:12px">
+      <button class="btn sm" onclick="openNewProject()">新建项目</button>
+      <button class="btn ghost sm" onclick="openAddMember()">添加课程成员</button></div>` : ''}
     <div class="card"><h2>${esc(p.title)}</h2>
       <dl class="kv"><dt>说明</dt><dd>${esc(p.description)}</dd>
         <dt>周期</dt><dd>${esc(p.startDate)} — ${esc(p.dueDate)}</dd>
@@ -209,6 +217,23 @@ async function viewTeams() {
   const role = S.role || S.user.role;
   const teams = await api('/api/projects/' + S.project.id + '/teams');
   S.teams = teams;
+  const transfers = await api('/api/projects/' + S.project.id + '/transfers');
+  const openTransfers = transfers.filter((x) => x.status === 'collecting' || x.status === 'pending_teacher');
+  const transferRows = openTransfers.map((x) => {
+    const voted = (x.votes || []).includes(S.user.id);
+    const operand = x.status === 'pending_teacher'
+      ? (role === 'teacher'
+        ? `<button class="btn sm" onclick="confirmTransfer('${x.id}')">确认移交</button>
+           <button class="btn ghost sm" onclick="rejectTransfer('${x.id}')">驳回</button>`
+        : badge('待教师确认', 'warn'))
+      : (role === 'student' && !voted
+        ? `<button class="btn ghost sm" onclick="voteTransfer('${x.id}')">同意表决</button>`
+        : badge('表决中', 'info'));
+    return `<tr><td>${esc(x.teamName)}</td><td>${esc(x.fromName)} → ${esc(x.toName)}</td>
+      <td>${(x.votes || []).length} 票</td>
+      <td>${badge(x.status === 'pending_teacher' ? '待教师确认' : '表决中', x.status === 'pending_teacher' ? 'warn' : 'info')}</td>
+      <td>${operand}</td></tr>`;
+  }).join('');
   const rows = teams.map((t) => {
     const mine = (t.members || []).some((m) => m.id === S.user.id);
     const canJoin = role === 'student' && !mine && !S.myTeamId && t.openJoin;
@@ -223,10 +248,15 @@ async function viewTeams() {
   const canCreate = role === 'student' && !S.myTeamId;
   return `<h1>${role === 'student' ? '我的小组' : '小组进度'}</h1>
     <div class="sub">${esc(S.project.title)} · 共 ${teams.length} 个小组</div>
+    ${openTransfers.length ? `<div class="card"><h2>组长移交</h2>
+      <table><thead><tr><th>小组</th><th>现任 → 候选</th><th>票数</th><th>状态</th><th>操作</th></tr></thead><tbody>${transferRows}</tbody></table>
+      <div class="note">V-08：组内半数以上成员同意后，由教师确认生效。</div></div>` : ''}
     <div class="card"><h2>小组列表</h2>
       <table><thead><tr><th>小组</th><th>人数</th><th>成员</th><th>迭代进度</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="empty">暂无小组</td></tr>'}</tbody></table>
       ${canCreate ? `<div class="row" style="margin-top:12px"><input id="newTeamName" type="text" placeholder="新小组名称" style="max-width:220px">
         <button class="btn sm" onclick="createTeam()">创建小组</button></div>` : ''}
+      ${S.myTeamId ? `<div class="row" style="margin-top:10px"><button class="btn ghost sm" onclick="openTransfer()">发起组长移交</button>
+        <span style="font-size:12px;color:#6b7c8f">仅组内成员可发起，需半数以上成员同意</span></div>` : ''}
       <div class="note">组队规则：每组 3—5 人；达到上限后不能继续加入。</div>
     </div>`;
 }
@@ -307,6 +337,14 @@ async function viewReviews() {
 
 async function viewGrades() {
   const data = await api('/api/projects/' + S.project.id + '/grades');
+  const appeals = await api('/api/projects/' + S.project.id + '/appeals');
+  const appealRows = appeals.map((x) => `<tr><td>${esc(x.teamName)}</td><td>${esc(x.studentName)}</td>
+    <td style="max-width:300px">${esc(x.reason)}</td><td>${fmt(x.createdAt)}</td>
+    <td>${x.status === 'submitted' ? badge('待处理', 'warn') : badge(x.decision === 'adjust' ? '已调整' : '维持原成绩', 'ok')}</td>
+    <td>${x.status === 'submitted'
+      ? `<button class="btn sm" onclick="resolveAppeal('${x.id}','keep')">维持</button>
+         <button class="btn ghost sm" onclick="resolveAppeal('${x.id}','adjust')">调整</button>`
+      : '—'}</td></tr>`).join('');
   const rows = data.teams.map((t) => `<tr><td>${esc(t.teamName)}</td>
     <td>${t.peer.score ?? '—'}</td><td>${t.ta.score ?? '—'}</td><td>${t.teacher.score ?? '—'}</td>
     <td><b>${t.total ?? '—'}</b></td>
@@ -326,17 +364,33 @@ async function viewGrades() {
         <button class="btn ghost" onclick="exportCsv()">导出成绩（CSV）</button>
       </div>
       <div class="note">发布后学生可见本人最终分与本组团队分；队友个人分不可见（BR-08）。</div>
+    </div>
+    <div class="card"><h2>成绩申诉</h2>
+      ${appealRows ? `<table><thead><tr><th>小组</th><th>学生</th><th>理由</th><th>提交时间</th><th>状态</th><th>处理</th></tr></thead><tbody>${appealRows}</tbody></table>`
+        : '<div class="empty">暂无申诉</div>'}
+      <div class="note">申诉窗口为成绩发布后 7 天；申诉期间该组成绩冻结，不进入归档（BR-09、ST-19）。</div>
     </div>`;
 }
 
 async function viewMyGrades() {
   const list = await api('/api/my/grades');
   if (!list.length) return '<div class="card"><h2>暂无成绩</h2><p>教师发布后即可查看。</p></div>';
-  const rows = list.map((g) => `<tr><td>${esc(g.projectTitle)}</td><td>${esc(g.teamName)}</td>
-    <td>${g.teamTotal ?? '—'}</td><td>${g.factor ?? '—'}</td><td><b>${g.final ?? '—'}</b></td>
-    <td>${g.published ? badge('已发布', 'ok') : badge('未发布', 'warn')}</td></tr>`).join('');
+  let appeals = [];
+  try { appeals = await api('/api/projects/' + S.project.id + '/appeals'); } catch (e) { appeals = []; }
+  const rows = list.map((g) => {
+    const ap = appeals.find((x) => x.projectId === g.projectId && x.teamId === g.teamId);
+    const status = ap
+      ? (ap.status === 'submitted' ? badge('申诉中（冻结）', 'warn') : badge('申诉已处理', 'info'))
+      : (g.published ? badge('已发布', 'ok') : badge('未发布', 'warn'));
+    const action = (g.published && !ap)
+      ? `<button class="btn ghost sm" onclick="openAppeal('${g.projectId}')">申诉</button>` : '—';
+    return `<tr><td>${esc(g.projectTitle)}</td><td>${esc(g.teamName)}</td>
+      <td>${g.teamTotal ?? '—'}</td><td>${g.factor ?? '—'}</td><td><b>${g.final ?? '—'}</b></td>
+      <td>${status}</td><td>${action}</td></tr>`;
+  }).join('');
   return `<h1>我的成绩</h1><div class="sub">仅显示本人最终分与本组团队分</div>
-    <div class="card"><table><thead><tr><th>项目</th><th>小组</th><th>团队总分</th><th>贡献系数</th><th>个人最终分</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="card"><table><thead><tr><th>项目</th><th>小组</th><th>团队总分</th><th>贡献系数</th><th>个人最终分</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="note">对成绩有异议可在发布后 7 天内申诉，申诉期间该组成绩冻结。</div></div>`;
 }
 
 async function viewChecks() {
@@ -521,6 +575,136 @@ async function exportCsv() {
     a.download = '成绩汇总.csv';
     a.click();
     toast('已导出成绩文件');
+  } catch (e) { toast(e.message); }
+}
+
+/* ------------------------------------------------------ 建课 / 建项 / 成员 */
+function openNewCourse() {
+  modal(`<h3>新建课程</h3>
+    <label class="f">课程编号</label><input id="ncCode" type="text" placeholder="如 CS401">
+    <label class="f">课程名称</label><input id="ncName" type="text" placeholder="如 软件工程">
+    <label class="f">学期</label><input id="ncTerm" type="text" value="2026 秋">
+    <label class="f">课程简介</label><textarea id="ncDesc"></textarea>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveCourse()">创建课程</button>
+    <button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function saveCourse() {
+  try {
+    const c = await api('/api/courses', { method: 'POST', body: {
+      code: document.getElementById('ncCode').value.trim(),
+      name: document.getElementById('ncName').value.trim(),
+      term: document.getElementById('ncTerm').value.trim(),
+      description: document.getElementById('ncDesc').value
+    } });
+    closeModal(); toast('课程已创建，邀请码 ' + c.inviteCode);
+    S.course = c; S.project = null; S.teams = []; S.role = 'teacher'; S.myTeamId = null;
+    renderAll(); go('project');
+  } catch (e) { toast(e.message); }
+}
+function openNewProject() {
+  modal(`<h3>新建项目任务</h3>
+    <label class="f">项目名称</label><input id="npTitle" type="text" placeholder="如 校园二手交易平台">
+    <label class="f">项目说明</label><textarea id="npDesc"></textarea>
+    <div class="grid c2"><div><label class="f">开始日期</label><input id="npStart" type="date"></div>
+    <div><label class="f">截止日期</label><input id="npDue" type="date"></div></div>
+    <div class="grid c2"><div><label class="f">最少人数</label><input id="npMin" type="number" value="3"></div>
+    <div><label class="f">最多人数</label><input id="npMax" type="number" value="5"></div></div>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveProject()">创建（草稿）</button>
+    <button class="btn ghost" onclick="closeModal()">取消</button></div>
+    <div class="note">创建后还需设置至少一个迭代阶段，才能发布。</div>`);
+}
+async function saveProject() {
+  try {
+    const p = await api('/api/projects', { method: 'POST', body: {
+      courseId: S.course.id,
+      title: document.getElementById('npTitle').value.trim(),
+      description: document.getElementById('npDesc').value,
+      startDate: document.getElementById('npStart').value || undefined,
+      dueDate: document.getElementById('npDue').value || undefined,
+      teamMin: Number(document.getElementById('npMin').value),
+      teamMax: Number(document.getElementById('npMax').value)
+    } });
+    closeModal(); toast('项目已创建（草稿）');
+    S.project = p; S.teams = [];
+    renderAll(); go('project');
+  } catch (e) { toast(e.message); }
+}
+function openAddMember() {
+  modal(`<h3>添加课程成员</h3>
+    <label class="f">账号或学号</label><input id="amId" type="text" placeholder="如 student13">
+    <label class="f">角色</label><select id="amRole"><option value="student">学生</option><option value="ta">助教</option></select>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveMember()">添加</button>
+    <button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function saveMember() {
+  try {
+    await api('/api/courses/' + S.course.id + '/members', { method: 'POST', body: {
+      identifier: document.getElementById('amId').value.trim(),
+      role: document.getElementById('amRole').value
+    } });
+    closeModal(); toast('成员已添加');
+  } catch (e) { toast(e.message); }
+}
+
+/* ------------------------------------------------------------ 组长移交 */
+function openTransfer() {
+  api('/api/teams/' + S.myTeamId).then(({ team }) => {
+    const candidates = team.members.filter((m) => m.id !== team.leaderId);
+    if (!candidates.length) { toast('组内没有其他成员'); return; }
+    modal(`<h3>发起组长移交</h3>
+      <div class="note">现任组长：${esc(team.members.find((m) => m.id === team.leaderId)?.name || '')}。需组内半数以上成员同意，并由教师确认后生效（V-08）。</div>
+      <label class="f">候选组长</label>
+      <select id="trTarget">${candidates.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+      <label class="f">理由</label><textarea id="trReason" placeholder="如组长长期失联"></textarea>
+      <div class="row" style="margin-top:14px"><button class="btn" onclick="saveTransfer()">发起移交</button>
+      <button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+  }).catch((e) => toast(e.message));
+}
+async function saveTransfer() {
+  try {
+    await api('/api/teams/' + S.myTeamId + '/leader-transfer', { method: 'POST', body: {
+      targetUserId: document.getElementById('trTarget').value,
+      reason: document.getElementById('trReason').value
+    } });
+    closeModal(); toast('移交申请已发起，等待组员表决'); go('teams');
+  } catch (e) { toast(e.message); }
+}
+async function voteTransfer(id) {
+  try { await api('/api/transfers/' + id + '/vote', { method: 'POST' }); toast('已同意'); go('teams'); }
+  catch (e) { toast(e.message); }
+}
+async function confirmTransfer(id) {
+  try { await api('/api/transfers/' + id + '/confirm', { method: 'POST' }); toast('组长移交已生效'); await reloadProject(); go('teams'); }
+  catch (e) { toast(e.message); }
+}
+async function rejectTransfer(id) {
+  try { await api('/api/transfers/' + id + '/reject', { method: 'POST' }); toast('已驳回'); go('teams'); }
+  catch (e) { toast(e.message); }
+}
+
+/* ------------------------------------------------------------ 成绩申诉 */
+function openAppeal(projectId) {
+  window.__appealProject = projectId;
+  modal(`<h3>成绩申诉</h3>
+    <div class="note">申诉须在成绩发布后 7 天内提交；申诉期间该组成绩冻结，教师处理前不进入归档（BR-09）。</div>
+    <label class="f">申诉理由</label><textarea id="apReason" placeholder="请说明具体问题，如某项分数计算有误"></textarea>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveAppeal()">提交申诉</button>
+    <button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function saveAppeal() {
+  try {
+    await api('/api/projects/' + window.__appealProject + '/appeals', { method: 'POST', body: {
+      reason: document.getElementById('apReason').value
+    } });
+    closeModal(); toast('申诉已提交，成绩已冻结'); go('mygrades');
+  } catch (e) { toast(e.message); }
+}
+async function resolveAppeal(id, decision) {
+  try {
+    await api('/api/appeals/' + id + '/resolve', { method: 'POST', body: {
+      decision, comment: decision === 'adjust' ? '教师确认需要调整，重新评分后发布' : '经核对，成绩计算无误'
+    } });
+    toast('申诉已处理'); go('grades');
   } catch (e) { toast(e.message); }
 }
 

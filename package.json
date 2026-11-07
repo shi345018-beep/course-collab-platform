@@ -1,0 +1,14 @@
+{
+  "name": "course-collab-platform",
+  "version": "1.0.0",
+  "description": "高校课程协作与评审平台（软件工程课程实验）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "test": "node test/api-test.js"
+  },
+  "engines": { "node": ">=22" },
+  "license": "MIT",
+  "private": true
+}

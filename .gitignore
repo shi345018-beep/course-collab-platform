@@ -1,0 +1,9 @@
+node_modules/
+data/db.json
+data/db.json.tmp
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+.idea/
+.vscode/

@@ -94,6 +94,8 @@ async function boot() {
   $('#app').classList.remove('hidden');
   S.view = 'dashboard';
   renderAll();
+  const viewParam = new URLSearchParams(location.search).get('view');
+  if (viewParam) { S.view = viewParam; renderAll(); }
 }
 
 async function loadNotifications() {
@@ -110,10 +112,11 @@ async function loadNotifications() {
 function navFor(role) {
   if (role === 'teacher') {
     return [['dashboard', '概览'], ['project', '项目任务'], ['teams', '小组进度'],
-      ['grades', '评分与成绩'], ['logs', '过程记录']];
+      ['submissions', '提交物'], ['grades', '评分与成绩'], ['logs', '过程记录']];
   }
   if (role === 'ta') {
-    return [['dashboard', '概览'], ['teams', '小组进度'], ['checks', '过程检查'], ['logs', '过程记录']];
+    return [['dashboard', '概览'], ['teams', '小组进度'], ['submissions', '提交物'],
+      ['checks', '过程检查'], ['logs', '过程记录']];
   }
   return [['dashboard', '概览'], ['teams', '我的小组'], ['submit', '迭代提交'],
     ['reviews', '同伴互评'], ['mygrades', '我的成绩']];
@@ -145,6 +148,7 @@ async function renderView() {
     if (S.view === 'dashboard') return (el.innerHTML = await viewDashboard());
     if (S.view === 'project') return (el.innerHTML = await viewProject());
     if (S.view === 'teams') return (el.innerHTML = await viewTeams());
+    if (S.view === 'submissions') return (el.innerHTML = await viewSubmissions());
     if (S.view === 'submit') return (el.innerHTML = await viewSubmit());
     if (S.view === 'reviews') return (el.innerHTML = await viewReviews());
     if (S.view === 'grades') return (el.innerHTML = await viewGrades());
@@ -224,6 +228,32 @@ async function viewTeams() {
       ${canCreate ? `<div class="row" style="margin-top:12px"><input id="newTeamName" type="text" placeholder="新小组名称" style="max-width:220px">
         <button class="btn sm" onclick="createTeam()">创建小组</button></div>` : ''}
       <div class="note">组队规则：每组 3—5 人；达到上限后不能继续加入。</div>
+    </div>`;
+}
+
+async function viewSubmissions() {
+  const list = await api('/api/projects/' + S.project.id + '/submissions');
+  const rows = list.map((s) => `<tr>
+      <td>${esc(s.teamName)}</td>
+      <td>${esc(s.iterationSeq)}. ${esc(s.iterationName)}</td>
+      <td>v${s.version}</td>
+      <td><b>${esc(s.title)}</b></td>
+      <td>${esc(s.submitterName)}</td>
+      <td>${fmt(s.submittedAt)}</td>
+    </tr>
+    <tr>
+      <td colspan="6" style="background:#fafbfd;padding-top:2px;padding-bottom:10px">
+        <div style="color:#33475b;white-space:pre-wrap;line-height:1.7">${esc(s.summary || '（提交人未填写成果说明）')}</div>
+        <div style="margin-top:6px;font-size:12px;color:#7b8a9b;word-break:break-all">
+          仓库：${s.repoUrl ? esc(s.repoUrl) : '未填写'}　｜　附件：${s.attachmentUrl ? esc(s.attachmentUrl) : '未填写'}
+        </div>
+      </td>
+    </tr>`).join('');
+  return `<h1>提交物</h1><div class="sub">${esc(S.project.title)} · 共 ${list.length} 条提交记录（含历史版本）</div>
+    <div class="card">
+      ${rows ? `<table><thead><tr><th>小组</th><th>迭代</th><th>版本</th><th>标题</th><th>提交人</th><th>提交时间</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<div class="empty">暂无提交记录</div>'}
+      <div class="note">成果说明直接展示在下方，仓库与附件地址以文本形式给出，不跳转外部页面。同一迭代多次提交会生成新版本，历史版本保留（BR-17）；学生只能看到本组提交物（BR-01）。</div>
     </div>`;
 }
 

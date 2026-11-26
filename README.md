@@ -38,16 +38,38 @@ node server.js   # 启动服务
 - 数据存储：本地 JSON 文件（原子写入）
 - 前端：原生 HTML / CSS / JavaScript
 
+## 架构（v2）
+
+v2 采用模块化单体，依赖方向固定为 `http → controller → service → domain/repository`。
+架构约束、决策记录与迁移计划见 `docs/architecture.md`、`docs/adr/`、`docs/rebuild-plan.md`。
+
+```
+src/
+  app.js            组合根
+  config.js         运行配置
+  http/             服务、路由、错误
+  modules/          auth、courses、projects、teams、submissions、
+                    reviews、checks、grades、activity、dashboard
+  domain/           评分纯函数
+  infra/            数据适配、token、审计
+  shared/           跨层共享错误类型
+```
+
 ## 目录
 
 ```
-server.js        HTTP 服务与静态资源
-seed.js          演示数据生成
-lib/store.js     数据层（JSON 持久化）
-lib/auth.js      认证（scrypt + token）
-lib/activity.js  通知与过程记录
-lib/grades.js    评分引擎
-lib/api.js       REST 接口与业务规则
-public/          前端页面
-docs/            环境清单、系统说明、架构与测试
+server.js         启动入口（加载 src/server.js）
+src/              v2 业务代码
+public/           前端页面与 api-client
+test/             20 项接口回归
+tools/            架构约束检查
+docs/             环境清单、系统说明、架构、ADR、测试
+lib/              v1 历史实现（只读参考，不再被入口加载）
+```
+
+## 质量门禁
+
+```bash
+node tools/arch-check.js   # 依赖方向、零依赖、前端调用点
+node test/api-test.js      # 20 项接口回归
 ```

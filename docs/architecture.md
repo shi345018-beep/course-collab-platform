@@ -211,3 +211,25 @@ http ──> modules/*/controller ──> modules/*/service ──> domain
 | 前端框架 | 架构负责人 | 不引入，仅抽 api-client（D-8） |
 | 单模块内部实现细节 | 模块负责人 | 在约束内自主决定 |
 | 删功能、改契约、延期 | 全组确认 | 触发条件见第 0 节 |
+
+## 15. 迁移结果
+
+| 模块 | 迁移状态 | 关键文件 |
+|---|---|---|
+| auth | 已完成 | `src/modules/auth/` |
+| courses | 已完成 | `src/modules/courses/` |
+| projects | 已完成 | `src/modules/projects/` |
+| teams | 已完成（含组长移交） | `src/modules/teams/` |
+| submissions | 已完成（含截止与版本） | `src/modules/submissions/` |
+| reviews | 已完成（组间 + 组内） | `src/modules/reviews/` |
+| checks | 已完成 | `src/modules/checks/` |
+| grades | 已完成（含发布、导出、申诉） | `src/modules/grades/` |
+| activity | 已完成 | `src/modules/activity/` |
+
+补充：`dashboard` 为跨模块读模型，`domain/grading.js` 为纯函数评分引擎。
+
+**验收结果**：`tools/arch-check.js` 0 错误 0 警告；`test/api-test.js` 20 项全部通过；`server.js` 已切换为 v2 入口。
+
+## 16. 迁移中修复的问题
+
+课堂实践发现 v1 的互评分配会为**历史版本**也创建评审任务，而成绩只统计最新版本，导致无效工作量。v2 在 `src/modules/reviews/service.js` 中改为按「小组 + 迭代」取最新版本后再分配，详见 `docs/adr/ADR-005-latest-version-only.md`。

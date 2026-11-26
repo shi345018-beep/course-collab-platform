@@ -1,7 +1,7 @@
 'use strict';
 /**
- * v2 开发入口（迁移期与 v1 并存）。
- * 启动：node src/server.js  默认端口 8098，避免与 v1 的 8099 冲突。
+ * 系统入口：装配路由并启动 HTTP 服务。
+ * 启动：node server.js（或 node src/server.js），默认端口 8099，被占用时自动顺延。
  */
 const os = require('os');
 const { Router } = require('./http/router');
@@ -52,8 +52,19 @@ function start(port, attempt) {
   server.listen(port, '0.0.0.0', function () {
     const actual = server.address().port;
     console.log('');
-    console.log('  v2 开发服务已启动（全部业务模块已迁移）');
+    console.log('  高校课程协作与评审平台已启动');
     console.log('  本机访问: http://localhost:' + actual);
+    const nets = os.networkInterfaces();
+    let lanCount = 0;
+    Object.values(nets).forEach(function (list) {
+      (list || []).forEach(function (item) {
+        if (item.family === 'IPv4' && !item.internal) {
+          console.log('  局域网:   http://' + item.address + ':' + actual);
+          lanCount++;
+        }
+      });
+    });
+    if (!lanCount) console.log('  局域网:   未检测到可用网卡（请确认已连接网络）');
     console.log('  已注册模块: auth、courses、projects、submissions、grades、teams、reviews、checks、activity');
     console.log('');
   });

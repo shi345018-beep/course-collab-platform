@@ -72,6 +72,13 @@ function createServer(options) {
       const result = found.route.handler({
         body: body, query: query, params: found.params, token: token, user: user
       });
+      if (result && result.raw !== undefined) {
+        res.writeHead(200, {
+          'Content-Type': result.contentType || 'text/plain; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="' + (result.filename || 'export.csv') + '"'
+        });
+        return res.end(result.raw);
+      }
       sendJson(res, 200, { code: 0, data: result === undefined ? {} : result });
     } catch (err) {
       const status = err.status || 500;

@@ -7,6 +7,7 @@
     "start": "node server.js",
     "seed": "node seed.js",
     "test": "node test/domain-test.js && node test/api-test.js",
+    "test:functional": "node test/functional-test.js",
     "arch": "node tools/arch-check.js"
   },
   "engines": { "node": ">=22" },

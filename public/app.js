@@ -27,17 +27,7 @@ function toast(msg) {
 }
 
 async function api(path, opts) {
-  const init = Object.assign({ headers: {} }, opts || {});
-  init.headers = Object.assign({ 'Content-Type': 'application/json' }, init.headers);
-  if (S.token) init.headers.Authorization = 'Bearer ' + S.token;
-  if (init.body && typeof init.body !== 'string') init.body = JSON.stringify(init.body);
-  const res = await fetch(path, init);
-  const json = await res.json().catch(() => ({ code: res.status, message: '响应解析失败' }));
-  if (!res.ok || json.code !== 0) {
-    if (res.status === 401) { logout(true); }
-    throw new Error(json.message || ('请求失败 (' + res.status + ')'));
-  }
-  return json.data;
+  return ApiClient.request(path, opts);
 }
 
 /* ------------------------------------------------------------------ 登录 */
@@ -51,6 +41,7 @@ async function doLogin() {
     });
     S.token = data.token;
     localStorage.setItem('cp_token', data.token);
+    ApiClient.setToken(data.token);
     S.user = data.user;
     S.memberships = data.memberships;
     await boot();
@@ -63,6 +54,7 @@ function logout(silent) {
   if (!silent && S.token) api('/api/logout', { method: 'POST' }).catch(() => {});
   S.token = '';
   S.user = null;
+  ApiClient.setToken('');
   localStorage.removeItem('cp_token');
   $('#app').classList.add('hidden');
   $('#login').classList.remove('hidden');
@@ -567,13 +559,7 @@ async function saveTeacherGrade(teamId) {
 
 async function exportCsv() {
   try {
-    const res = await fetch('/api/projects/' + S.project.id + '/export.csv', { headers: { Authorization: 'Bearer ' + S.token } });
-    if (!res.ok) throw new Error('导出失败');
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = '成绩汇总.csv';
-    a.click();
+    await ApiClient.download('/api/projects/' + S.project.id + '/export.csv', '成绩汇总.csv');
     toast('已导出成绩文件');
   } catch (e) { toast(e.message); }
 }
@@ -733,6 +719,8 @@ document.querySelectorAll('.demo span').forEach((s) => {
 $('#logoutBtn').onclick = () => logout();
 
 (async function init() {
+  ApiClient.setToken(S.token);
+  window.addEventListener('auth:expired', function () { logout(true); });
   const demo = new URLSearchParams(location.search).get('demo');
   if (demo && !S.token) {
     $('#username').value = demo;

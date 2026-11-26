@@ -73,4 +73,15 @@ function addMember(actor, courseId, input) {
   return { ok: true };
 }
 
-module.exports = { listMine: listMine, detail: detail, create: create, join: join, addMember: addMember };
+function membershipOf(userId, courseId) {
+  return repo.findMembership(userId, courseId);
+}
+
+module.exports = {
+  listMine: listMine,
+  detail: detail,
+  create: create,
+  join: join,
+  addMember: addMember,
+  membershipOf: membershipOf
+};

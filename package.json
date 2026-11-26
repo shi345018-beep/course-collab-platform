@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "seed": "node seed.js",
-    "test": "node test/api-test.js"
+    "test": "node test/api-test.js",
+    "arch": "node tools/arch-check.js"
   },
   "engines": { "node": ">=22" },
   "license": "MIT",

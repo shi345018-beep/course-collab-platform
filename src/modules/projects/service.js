@@ -110,5 +110,7 @@ module.exports = {
   detail: detail,
   create: create,
   publish: publish,
-  addIteration: addIteration
+  addIteration: addIteration,
+  projectOf: function (projectId) { return repo.findById(projectId); },
+  iterationsOf: function (projectId) { return repo.listIterations(projectId); }
 };

@@ -13,6 +13,7 @@ const registerCourseRoutes = require('./modules/courses/router');
 const registerProjectRoutes = require('./modules/projects/router');
 const registerSubmissionRoutes = require('./modules/submissions/router');
 const registerGradeRoutes = require('./modules/grades/router');
+const registerTeamRoutes = require('./modules/teams/router');
 
 const router = new Router();
 registerAuthRoutes(router);
@@ -20,6 +21,7 @@ registerCourseRoutes(router);
 registerProjectRoutes(router);
 registerSubmissionRoutes(router);
 registerGradeRoutes(router);
+registerTeamRoutes(router);
 
 const server = createServer({
   router: router,
@@ -42,9 +44,9 @@ function start(port, attempt) {
   server.listen(port, '0.0.0.0', function () {
     const actual = server.address().port;
     console.log('');
-    console.log('  v2 开发服务已启动（当前模块：auth、courses、projects、submissions、grades）');
+    console.log('  v2 开发服务已启动（当前模块：auth、courses、projects、submissions、grades、teams）');
     console.log('  本机访问: http://localhost:' + actual);
-    console.log('  已注册模块: auth、courses、projects、submissions、grades（其余模块迁移中）');
+    console.log('  已注册模块: auth、courses、projects、submissions、grades、teams（其余模块迁移中）');
     console.log('');
   });
 }

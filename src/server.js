@@ -9,9 +9,11 @@ const { createServer } = require('./http/server');
 const config = require('./config');
 const authService = require('./modules/auth/service');
 const registerAuthRoutes = require('./modules/auth/router');
+const registerCourseRoutes = require('./modules/courses/router');
 
 const router = new Router();
 registerAuthRoutes(router);
+registerCourseRoutes(router);
 
 const server = createServer({
   router: router,
@@ -34,9 +36,9 @@ function start(port, attempt) {
   server.listen(port, '0.0.0.0', function () {
     const actual = server.address().port;
     console.log('');
-    console.log('  v2 开发服务已启动（当前模块：auth）');
+    console.log('  v2 开发服务已启动（当前模块：auth、courses）');
     console.log('  本机访问: http://localhost:' + actual);
-    console.log('  已注册接口: POST /api/login, POST /api/logout, GET /api/me');
+    console.log('  已注册接口: login / me / courses 列表与详情 / 创建课程 / 加入课程 / 添加成员');
     console.log('');
   });
 }
